@@ -86,13 +86,13 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <!-- マテリアル名 -->
                 <div class="col-span-2">
-                    <label for="material-name" class="block text-sm font-medium text-gray-700">➡️マテリアル名を入力</label>
+                    <label for="material-name" class="block text-sm font-medium text-gray-700">🔳マテリアル名を入力</label>
                     <input type="text" id="material-name" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
                 </div>
                 
                 <!-- Type選択 -->
                 <div class="col-span-2">
-                    <label for="material-type" class="block text-sm font-medium text-gray-700">➡️マテリアルタイプを選択（単色／テクスチャを使用する）</label>
+                    <label for="material-type" class="block text-sm font-medium text-gray-700">🔳マテリアルタイプを選択（単色／テクスチャを使用する）</label>
                     <select id="material-type" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-sm shadow-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
                         <option value="0">単色</option>
                         <option value="1">テクスチャを使用する</option>
@@ -146,30 +146,34 @@
                     <div class="flex items-center gap-4 mb-2">
                         <div id="color-preview" class="w-20 h-20 rounded-md border border-gray-300"></div>
                         <div class="flex-1">
-                            <label for="color-picker" class="block text-sm font-medium text-gray-700">➡️カラーピッカーまたはスライダーで色を選択</label>
+                            <label for="color-picker" class="block text-sm font-medium text-gray-700">🔳カラーピッカー↓、またはスライダーで色を選択</label>
                             <input type="color" id="color-picker" value="#000000" class="mt-1 block w-full h-10 border-none rounded-md cursor-pointer">
                         </div>
                     </div>
                     <p class="text-sm font-medium text-gray-700">マテリアルカラー (RGB)</p>
                 </div>
 
-                <!-- RGB スライダー -->
-                <div>
-                    <label for="color-red" class="block text-sm font-medium text-red-600">赤 (<span id="red-value">0</span>)</label>
-                    <input type="range" id="color-red" min="0" max="255" value="0" class="w-full h-2 bg-red-200 rounded-lg appearance-none cursor-pointer mt-1">
-                </div>
-                <div>
-                    <label for="color-green" class="block text-sm font-medium text-green-600">緑 (<span id="green-value">0</span>)</label>
-                    <input type="range" id="color-green" min="0" max="255" value="0" class="w-full h-2 bg-green-200 rounded-lg appearance-none cursor-pointer mt-1">
-                </div>
-                <div>
-                    <label for="color-blue" class="block text-sm font-medium text-blue-600">青 (<span id="blue-value">0</span>)</label>
-                    <input type="range" id="color-blue" min="0" max="255" value="0" class="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer mt-1">
+                <!-- RGB スライダー (縦並び) -->
+                <div class="col-span-2">
+                    <div class="space-y-4">
+                        <div>
+                            <label for="color-red" class="block text-sm font-medium text-red-600">赤 (<span id="red-value">0</span>)</label>
+                            <input type="range" id="color-red" min="0" max="255" value="0" class="w-full h-2 bg-red-200 rounded-lg appearance-none cursor-pointer mt-1">
+                        </div>
+                        <div>
+                            <label for="color-green" class="block text-sm font-medium text-green-600">緑 (<span id="green-value">0</span>)</label>
+                            <input type="range" id="color-green" min="0" max="255" value="0" class="w-full h-2 bg-green-200 rounded-lg appearance-none cursor-pointer mt-1">
+                        </div>
+                        <div>
+                            <label for="color-blue" class="block text-sm font-medium text-blue-600">青 (<span id="blue-value">0</span>)</label>
+                            <input type="range" id="color-blue" min="0" max="255" value="0" class="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer mt-1">
+                        </div>
+                    </div>
                 </div>
                 
                 <!-- useTrans 設定 -->
                 <div id="usetrans-section" class="col-span-2 mt-4">
-                    <label for="usetrans" class="block text-sm font-medium text-gray-700">➡️透明度（無効／有効）</label>
+                    <label for="usetrans" class="block text-sm font-medium text-gray-700">🔳透明度（無効／有効）</label>
                     <select id="usetrans" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-sm shadow-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
                         <option value="1">有効</option>
                         <option value="0">無効</option>
@@ -665,7 +669,3 @@
     </script>
 </body>
 </html>
-
-
-
-
