@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sketchup マテリアル簡易エディター</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.6.0/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip-utils/0.1.0/jszip-utils.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        .container {
+            max-width: 800px;
+            margin: auto;
+            padding: 2rem;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #4f46e5;
+            border: 2px solid #fff;
+            box-shadow: 0 0 2px rgba(0,0,0,0.5);
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            background: #4f46e5;
+            border: 2px solid #fff;
+            box-shadow: 0 0 2px rgba(0,0,0,0.5);
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        .disabled-section {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+    <div class="bg-white rounded-lg shadow-xl p-8 max-w-2xl w-full">
+        <h1 class="text-3xl font-bold text-center mb-6 text-gray-800">SketchUp マテリアル簡易エディター</h1>
+        <p class="text-center text-gray-600 mb-8">
+            SketchUp Freeユーザー向けのマテリアルエディターです。マテリアルの新規作成、またはskmファイルを読み込んで、マテリアルパラメータを編集、新しいファイルで保存できます。
+        </p>
+
+        <!-- メッセージ表示エリア -->
+        <div id="message-box" class="hidden mb-4 p-3 rounded-md text-sm text-center" role="alert"></div>
+
+        <!-- ファイルアップロードセクション -->
+        <div id="upload-section" class="mb-8">
+            <button id="create-new-button" class="w-full mb-4 py-3 px-6 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg transition-colors duration-200 shadow-md">
+                新しいマテリアルを作成
+            </button>
+            <label for="skm-file" class="block text-gray-700 font-semibold mb-2">skmファイルをアップロード</label>
+            <div class="flex items-center justify-center w-full">
+                <label for="skm-file" class="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors duration-200">
+                    <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                        <svg class="w-8 h-8 mb-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                        </svg>
+                        <p class="mb-2 text-sm text-gray-500"><span class="font-semibold">クリックしてアップロード</span> またはドラッグ＆ドロップ</p>
+                        <p class="text-xs text-gray-500">.skmファイル</p>
+                    </div>
+                    <input id="skm-file" type="file" class="hidden" accept=".skm" />
+                </label>
+            </div>
+            <p id="file-info" class="text-center text-gray-500 text-sm mt-2 hidden"></p>
+        </div>
+
+        <!-- 編集フォームセクション -->
+        <div id="editor-section" class="hidden">
+            <div class="flex justify-end mb-4">
+                <button id="cancel-edit-button" class="py-2 px-4 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold rounded-lg transition-colors duration-200 shadow-md">
+                    編集をやり直す
+                </button>
+            </div>
+            <h2 class="text-xl font-bold mb-4 text-gray-800">マテリアルパラメータの編集</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- マテリアル名 -->
+                <div class="col-span-2">
+                    <label for="material-name" class="block text-sm font-medium text-gray-700">マテリアル名</label>
+                    <input type="text" id="material-name" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
+                </div>
+                
+                <!-- Type選択 -->
+                <div class="col-span-2">
+                    <label for="material-type" class="block text-sm font-medium text-gray-700">マテリアルタイプ</label>
+                    <select id="material-type" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-sm shadow-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
+                        <option value="0">単色</option>
+                        <option value="1">テクスチャを使用する</option>
+                    </select>
+                </div>
+
+                <!-- テクスチャ設定 -->
+                <div id="texture-section" class="col-span-2 mt-4 disabled-section">
+                    <div class="flex items-center gap-2 mb-2">
+                        <input type="checkbox" id="use-texture" class="rounded text-indigo-600 focus:ring-indigo-500" disabled>
+                        <label for="use-texture" class="text-lg font-semibold text-gray-800">テクスチャを使用する</label>
+                    </div>
+
+                    <div class="flex flex-col gap-4">
+                        <p id="no-texture-message" class="text-gray-500 italic hidden">テクスチャはありません</p>
+                        <div id="texture-info" class="hidden">
+                            <img id="texture-preview" class="w-full h-auto max-h-48 object-contain rounded-md border border-gray-300 mb-2" src="" alt="テクスチャプレビュー">
+                            
+                            <!-- 新しいテクスチャアップロードUI -->
+                            <label for="texture-file" class="block text-gray-700 font-semibold mb-2">新しいテクスチャをアップロード</label>
+                            <div class="flex items-center justify-center w-full">
+                                <label for="texture-file" class="flex flex-col items-center justify-center w-full h-24 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors duration-200">
+                                    <div class="flex flex-col items-center justify-center pt-2 pb-2">
+                                        <svg class="w-6 h-6 mb-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-4l-4-4m6 4l4 4"></path>
+                                        </svg>
+                                        <p class="mb-2 text-sm text-gray-500"><span class="font-semibold">クリックしてアップロード</span> またはドラッグ＆ドロップ</p>
+                                        <p class="text-xs text-gray-500">JPG, JPEG, PNG</p>
+                                    </div>
+                                    <input id="texture-file" type="file" class="hidden" accept="image/jpeg, image/png" />
+                                </label>
+                            </div>
+                            <p id="texture-file-info" class="text-center text-gray-500 text-sm mt-2 hidden"></p>
+
+                            <div class="grid grid-cols-2 gap-4 mt-4">
+                                <div>
+                                    <label for="texture-scale-mm-x" class="block text-sm font-medium text-gray-700">ヨコの大きさ (mm)</label>
+                                    <input type="number" id="texture-scale-mm-x" min="1" step="1" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" value="300">
+                                </div>
+                                <div>
+                                    <label for="texture-scale-mm-y" class="block text-sm font-medium text-gray-700">タテの大きさ (mm)</label>
+                                    <input type="number" id="texture-scale-mm-y" min="1" step="1" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" value="300">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 色プレビューとカラーピッカー -->
+                <div class="col-span-2">
+                    <div class="flex items-center gap-4 mb-2">
+                        <div id="color-preview" class="w-20 h-20 rounded-md border border-gray-300"></div>
+                        <div class="flex-1">
+                            <label for="color-picker" class="block text-sm font-medium text-gray-700">カラーピッカー</label>
+                            <input type="color" id="color-picker" value="#000000" class="mt-1 block w-full h-10 border-none rounded-md cursor-pointer">
+                        </div>
+                    </div>
+                    <p class="text-sm font-medium text-gray-700">マテリアルカラー (RGB)</p>
+                </div>
+
+                <!-- RGB スライダー -->
+                <div>
+                    <label for="color-red" class="block text-sm font-medium text-red-600">赤 (<span id="red-value">0</span>)</label>
+                    <input type="range" id="color-red" min="0" max="255" value="0" class="w-full h-2 bg-red-200 rounded-lg appearance-none cursor-pointer mt-1">
+                </div>
+                <div>
+                    <label for="color-green" class="block text-sm font-medium text-green-600">緑 (<span id="green-value">0</span>)</label>
+                    <input type="range" id="color-green" min="0" max="255" value="0" class="w-full h-2 bg-green-200 rounded-lg appearance-none cursor-pointer mt-1">
+                </div>
+                <div>
+                    <label for="color-blue" class="block text-sm font-medium text-blue-600">青 (<span id="blue-value">0</span>)</label>
+                    <input type="range" id="color-blue" min="0" max="255" value="0" class="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer mt-1">
+                </div>
+                
+                <!-- useTrans 設定 -->
+                <div id="usetrans-section" class="col-span-2 mt-4">
+                    <label for="usetrans" class="block text-sm font-medium text-gray-700">透明度を有効化</label>
+                    <select id="usetrans" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-sm shadow-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
+                        <option value="1">有効</option>
+                        <option value="0">無効</option>
+                    </select>
+                </div>
+
+                <!-- 透過設定 -->
+                <div id="transparency-section" class="col-span-2 mt-4">
+                    <label for="transparency" class="block text-sm font-medium text-gray-700">透過度 (<span id="transparency-value">0</span>%)</label>
+                    <input type="range" id="transparency" min="0" max="100" value="0" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer mt-1">
+                </div>
+
+                <!-- ボタンセクション -->
+                <div class="col-span-2 flex justify-between items-center mt-6">
+                    <button id="download-button" class="w-full py-3 px-6 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg transition-colors duration-200 shadow-md disabled:bg-gray-400" disabled>
+                       skmファイルを保存
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const INCH_TO_MM = 25.4;
+
+            const uploadSection = document.getElementById('upload-section');
+            const fileInput = document.getElementById('skm-file');
+            const fileInfo = document.getElementById('file-info');
+            const messageBox = document.getElementById('message-box');
+            const editorSection = document.getElementById('editor-section');
+            const downloadButton = document.getElementById('download-button');
+            const createNewButton = document.getElementById('create-new-button');
+            const cancelEditButton = document.getElementById('cancel-edit-button');
+
+            // Material editing form elements
+            const materialNameInput = document.getElementById('material-name');
+            const materialTypeSelect = document.getElementById('material-type');
+            const colorPreview = document.getElementById('color-preview');
+            const colorPickerInput = document.getElementById('color-picker');
+            const colorRedInput = document.getElementById('color-red');
+            const colorGreenInput = document.getElementById('color-green');
+            const colorBlueInput = document.getElementById('color-blue');
+            const redValueSpan = document.getElementById('red-value');
+            const greenValueSpan = document.getElementById('green-value');
+            const blueValueSpan = document.getElementById('blue-value');
+            const transparencySection = document.getElementById('transparency-section');
+            const transparencyInput = document.getElementById('transparency');
+            const transparencyValueSpan = document.getElementById('transparency-value');
+            const usetransSelect = document.getElementById('usetrans');
+            const useTextureCheckbox = document.getElementById('use-texture');
+            const textureSection = document.getElementById('texture-section');
+            const noTextureMessage = document.getElementById('no-texture-message');
+            const textureInfo = document.getElementById('texture-info');
+            const texturePreview = document.getElementById('texture-preview');
+            const textureScaleMmXInput = document.getElementById('texture-scale-mm-x');
+            const textureScaleMmYInput = document.getElementById('texture-scale-mm-y');
+            const textureFileInput = document.getElementById('texture-file');
+            const textureFileInfo = document.getElementById('texture-file-info');
+
+            let originalZip = null;
+            let originalFilename = '';
+            let newTextureFile = null;
+
+            // Function to show messages
+            const showMessage = (message, type = 'info') => {
+                messageBox.textContent = message;
+                messageBox.classList.remove('hidden', 'bg-red-200', 'text-red-800', 'bg-green-200', 'text-green-800', 'bg-blue-200', 'text-blue-800');
+                if (type === 'error') {
+                    messageBox.classList.add('bg-red-200', 'text-red-800');
+                } else if (type === 'success') {
+                    messageBox.classList.add('bg-green-200', 'text-green-800');
+                } else {
+                    messageBox.classList.add('bg-blue-200', 'text-blue-800');
+                }
+            };
+
+            // Update color preview and sliders from RGB values
+            const updateColorUI = (r, g, b) => {
+                colorRedInput.value = r;
+                colorGreenInput.value = g;
+                colorBlueInput.value = b;
+                redValueSpan.textContent = r;
+                greenValueSpan.textContent = g;
+                blueValueSpan.textContent = b;
+                const hexColor = `#${(1 << 24 | r << 16 | g << 8 | b).toString(16).slice(1)}`;
+                colorPreview.style.backgroundColor = hexColor;
+                colorPickerInput.value = hexColor;
+            };
+            
+            // Function to handle the visibility of the transparency section
+            const handleTransparencyVisibility = () => {
+                colorPreview.style.opacity = (100 - transparencyInput.value) / 100;
+            };
+            
+            // Function to handle the disabling of the transparency slider
+            const handleTransparencyDisable = () => {
+                const isTransEnabled = usetransSelect.value === '1';
+                if (isTransEnabled) {
+                    transparencySection.classList.remove('disabled-section');
+                } else {
+                    transparencySection.classList.add('disabled-section');
+                }
+            };
+
+            // Function to handle the visibility of the texture section
+            const handleTextureSectionVisibility = () => {
+                const selectedType = materialTypeSelect.value;
+                const isTextureEnabled = selectedType === '1';
+                useTextureCheckbox.checked = isTextureEnabled;
+                if (isTextureEnabled) {
+                    textureSection.classList.remove('disabled-section');
+                    textureInfo.classList.remove('hidden');
+                    noTextureMessage.classList.add('hidden');
+                } else {
+                    textureSection.classList.add('disabled-section');
+                    textureInfo.classList.add('hidden');
+                    noTextureMessage.classList.remove('hidden');
+                }
+            };
+
+            // Convert RGBA to ABGR decimal
+            const rgbToAbgr = (r, g, b, a) => {
+                // Alpha is 255 for opaque, 0 for transparent
+                const alphaByte = Math.round(255 - (a / 100) * 255);
+                return (alphaByte << 24) | (b << 16) | (g << 8) | r;
+            };
+
+            // Reset form to default values for new material
+            const resetForm = () => {
+                materialNameInput.value = "New Material";
+                materialTypeSelect.value = "0";
+                updateColorUI(128, 128, 128); // Grey default color
+                usetransSelect.value = "0";
+                transparencyInput.value = "0";
+                transparencyValueSpan.textContent = "0";
+                colorPreview.style.opacity = 1;
+                useTextureCheckbox.checked = false;
+                textureSection.classList.add('disabled-section');
+                textureInfo.classList.add('hidden');
+                noTextureMessage.classList.add('hidden');
+                texturePreview.src = '';
+                // Setting default values for texture scale
+                textureScaleMmXInput.value = '300';
+                textureScaleMmYInput.value = '300';
+                downloadButton.disabled = false;
+                
+                // Show editor, disable upload section
+                editorSection.classList.remove('hidden');
+                uploadSection.classList.add('disabled-section');
+                fileInfo.classList.add('hidden');
+                
+                originalZip = null;
+                originalFilename = 'New_Material.skm';
+                newTextureFile = null;
+                textureFileInfo.classList.add('hidden');
+                showMessage('新しいマテリアルを作成します。', 'info');
+                handleTransparencyDisable(); // Initial call to disable transparency if needed
+            };
+            
+            // Set up initial view
+            const resetView = () => {
+                editorSection.classList.add('hidden');
+                uploadSection.classList.remove('disabled-section');
+                fileInput.value = null; // Clear file input
+                fileInfo.classList.add('hidden');
+                showMessage('');
+            };
+
+            // Event listeners
+            createNewButton.addEventListener('click', () => {
+                resetForm();
+            });
+
+            cancelEditButton.addEventListener('click', () => {
+                resetView();
+            });
+
+            materialTypeSelect.addEventListener('change', handleTextureSectionVisibility);
+            usetransSelect.addEventListener('change', handleTransparencyDisable); // New event listener
+
+            colorRedInput.addEventListener('input', () => updateColorUI(colorRedInput.value, colorGreenInput.value, colorBlueInput.value));
+            colorGreenInput.addEventListener('input', () => updateColorUI(colorRedInput.value, colorGreenInput.value, colorBlueInput.value));
+            colorBlueInput.addEventListener('input', () => updateColorUI(colorRedInput.value, colorGreenInput.value, colorBlueInput.value));
+            colorPickerInput.addEventListener('input', (event) => {
+                const hex = event.target.value;
+                const r = parseInt(hex.slice(1, 3), 16);
+                const g = parseInt(hex.slice(3, 5), 16);
+                const b = parseInt(hex.slice(5, 7), 16);
+                updateColorUI(r, g, b);
+            });
+
+            transparencyInput.addEventListener('input', (event) => {
+                const value = parseInt(event.target.value, 10);
+                transparencyValueSpan.textContent = value;
+                handleTransparencyVisibility();
+            });
+            
+            // Texture file upload handler
+            textureFileInput.addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                if (file) {
+                    newTextureFile = file;
+                    textureFileInfo.textContent = `新しいテクスチャ: ${file.name}`;
+                    textureFileInfo.classList.remove('hidden');
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        texturePreview.src = e.target.result;
+                        textureInfo.classList.remove('hidden');
+                        noTextureMessage.classList.add('hidden');
+                    };
+                    reader.readAsDataURL(file);
+                } else {
+                    newTextureFile = null;
+                    textureFileInfo.classList.add('hidden');
+                }
+            });
+
+            // File upload handling
+            fileInput.addEventListener('change', async (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                if (!file.name.endsWith('.skm')) {
+                    showMessage('無効なファイル形式です。 .skm ファイルをアップロードしてください。', 'error');
+                    editorSection.classList.add('hidden');
+                    return;
+                }
+
+                showMessage('ファイルを解析中...', 'info');
+                fileInfo.textContent = `ファイル: ${file.name}`;
+                fileInfo.classList.remove('hidden');
+                
+                // Show editor, disable upload section
+                editorSection.classList.add('hidden');
+                uploadSection.classList.add('disabled-section');
+                
+
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    const arrayBuffer = e.target.result;
+                    try {
+                        const zip = await JSZip.loadAsync(arrayBuffer);
+                        originalZip = zip;
+                        originalFilename = file.name;
+                        newTextureFile = null;
+                        textureFileInfo.classList.add('hidden');
+
+                        const docXmlFile = zip.file('document.xml');
+                        if (!docXmlFile) {
+                            showMessage('エラー: ZIP内に document.xml が見つかりません。', 'error');
+                            return;
+                        }
+
+                        const docXmlText = await docXmlFile.async('text');
+                        const parser = new DOMParser();
+                        const xmlDoc = parser.parseFromString(docXmlText, 'text/xml');
+                        const material = xmlDoc.getElementsByTagNameNS('http://sketchup.google.com/schemas/sketchup/1.0/material', 'material')[0];
+
+                        if (material) {
+                            materialNameInput.value = material.getAttribute('name') || '';
+                            const materialType = material.getAttribute('type') || '0';
+                            if (materialType === '2') {
+                                // Force to 1 if the original type is 2
+                                materialTypeSelect.value = '1'; 
+                            } else {
+                                materialTypeSelect.value = materialType;
+                            }
+                            
+                            const r = material.getAttribute('colorRed') || 0;
+                            const g = material.getAttribute('colorGreen') || 0;
+                            const b = material.getAttribute('colorBlue') || 0;
+                            updateColorUI(r, g, b);
+
+                            const useTransValue = material.getAttribute('useTrans') || '0';
+                            usetransSelect.value = useTransValue;
+                            handleTransparencyDisable(); // Set state based on file content
+
+                            const transValue = parseFloat(material.getAttribute('trans')) || 0;
+                            const scaledTransValue = transValue * 100;
+                            transparencyInput.value = scaledTransValue;
+                            transparencyValueSpan.textContent = Math.round(scaledTransValue);
+                            handleTransparencyVisibility();
+
+                            const texture = xmlDoc.getElementsByTagNameNS('http://sketchup.google.com/schemas/sketchup/1.0/material', 'texture')[0];
+                            const hasTexture = !!texture;
+
+                            const selectedType = materialTypeSelect.value;
+                            const isTextureType = selectedType === '1';
+                            
+                            if (isTextureType) {
+                                textureSection.classList.remove('disabled-section');
+                                useTextureCheckbox.checked = hasTexture;
+                                textureInfo.classList.toggle('hidden', !hasTexture);
+                                noTextureMessage.classList.toggle('hidden', hasTexture);
+
+                                if (hasTexture) {
+                                    const xScaleInch = parseFloat(texture.getAttribute('xScale')) || 1;
+                                    const yScaleInch = parseFloat(texture.getAttribute('yScale')) || 1;
+                                    textureScaleMmXInput.value = (xScaleInch * INCH_TO_MM).toFixed(2);
+                                    textureScaleMmYInput.value = (yScaleInch * INCH_TO_MM).toFixed(2);
+                                    
+                                    const imageNode = texture.getElementsByTagNameNS('http://sketchup.google.com/schemas/sketchup/1.0/material', 'image')[0];
+                                    if (imageNode) {
+                                        const texturePath = imageNode.getAttribute('path');
+                                        const textureFile = zip.files[`ref/${texturePath}`];
+                                        if (textureFile) {
+                                            const textureBlob = await textureFile.async('blob');
+                                            texturePreview.src = URL.createObjectURL(textureBlob);
+                                        } else {
+                                            console.warn(`Texture file not found at expected path: ref/${texturePath}`);
+                                            texturePreview.src = '';
+                                        }
+                                    } else {
+                                        console.warn(`Image node not found for texture.`);
+                                        texturePreview.src = '';
+                                    }
+                                } else {
+                                    texturePreview.src = '';
+                                }
+
+                            } else {
+                                textureSection.classList.add('disabled-section');
+                                useTextureCheckbox.checked = false;
+                                textureInfo.classList.add('hidden');
+                                noTextureMessage.classList.remove('hidden');
+                            }
+
+                            editorSection.classList.remove('hidden');
+                            downloadButton.disabled = false;
+                            showMessage('ファイルを正常に読み込みました。', 'success');
+                        } else {
+                            showMessage('エラー: document.xmlにマテリアルデータが見つかりません。', 'error');
+                            uploadSection.classList.remove('disabled-section');
+                        }
+                    } catch (error) {
+                        console.error('File parsing error:', error);
+                        showMessage('ファイルの解析中にエラーが発生しました。', 'error');
+                        uploadSection.classList.remove('disabled-section');
+                    }
+                };
+                reader.readAsArrayBuffer(file);
+            });
+
+            // Download new file
+            downloadButton.addEventListener('click', async () => {
+                const materialName = materialNameInput.value.trim();
+                if (materialName === '') {
+                    showMessage('マテリアル名を入力してください。', 'error');
+                    return;
+                }
+
+                showMessage('新しい .skm ファイルを生成中...', 'info');
+
+                try {
+                    let xmlDoc;
+                    let newZip = new JSZip();
+
+                    if (originalZip) {
+                        // Editing existing file: copy all original files
+                        const docXmlFile = originalZip.file('document.xml');
+                        const docXmlText = await docXmlFile.async('text');
+                        const parser = new DOMParser();
+                        xmlDoc = parser.parseFromString(docXmlText, 'text/xml');
+                        
+                        // Copy all files from original zip, except for ref/ and document.xml
+                        originalZip.forEach((relativePath, zipEntry) => {
+                            if (relativePath !== 'document.xml' && !relativePath.startsWith('ref/')) {
+                                newZip.file(relativePath, zipEntry.async('blob'));
+                            }
+                        });
+                        // Ensure the ref folder exists
+                        newZip.folder('ref');
+                    } else {
+                        // Creating new file: build all files from the template
+                        const templateXmlString = `<?xml version="1.0" encoding="UTF-8" standalone="no"?><materialDocument xmlns="http://sketchup.google.com/schemas/sketchup/1.0/material" xmlns:mat="http://sketchup.google.com/schemas/sketchup/1.0/material" xmlns:r="http://sketchup.google.com/schemas/1.0/references" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://sketchup.google.com/schemas/sketchup/1.0/material http://sketchup.google.com/schemas/sketchup/1.0/material.xsd"><mat:material name="New Material" type="0" colorRed="128" colorGreen="128" colorBlue="128" colorizeType="0" trans="0" useTrans="0" hasTexture="0" /></materialDocument>`;
+                        const parser = new DOMParser();
+                        xmlDoc = parser.parseFromString(templateXmlString, 'text/xml');
+                        
+                        const docPropsXmlString = `<?xml version="1.0" encoding="UTF-8" standalone="no" ?><documentProperties xmlns="http://sketchup.google.com/schemas/1.0/documentproperties" xmlns:dp="http://sketchup.google.com/schemas/1.0/documentproperties" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://sketchup.google.com/schemas/1.0/documentproperties http://sketchup.google.com/schemas/1.0/documentproperties.xsd"><dp:title>名前</dp:title><dp:description></dp:description><dp:creator></dp:creator><dp:keywords></dp:keywords><dp:lastModifiedBy></dp:lastModifiedBy><dp:revision>0</dp:revision><dp:created>${new Date().toISOString()}</dp:created><dp:modified>${new Date().toISOString()}</dp:modified><dp:thumbnail>doc_thumbnail.png</dp:thumbnail><dp:generator dp:name=\"Material\" dp:version=\"1\" /></documentProperties>`;
+                        const referencesXmlString = `<?xml version="1.0" encoding="UTF-8" standalone="no" ?><references xmlns="http://sketchup.google.com/schemas/1.0/references" xmlns:r="http://sketchup.google.com/schemas/1.0/references" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://sketchup.google.com/schemas/1.0/references http://sketchup.google.com/schemas/1.0/references.xsd" />`;
+
+                        newZip.file('documentProperties.xml', docPropsXmlString);
+                        newZip.file('references.xml', referencesXmlString);
+                        newZip.folder('ref');
+                    }
+                    
+                    const material = xmlDoc.getElementsByTagNameNS('http://sketchup.google.com/schemas/sketchup/1.0/material', 'material')[0];
+
+                    material.setAttribute('name', materialName);
+                    material.setAttribute('type', materialTypeSelect.value);
+                    material.setAttribute('colorRed', colorRedInput.value);
+                    material.setAttribute('colorGreen', colorGreenInput.value);
+                    material.setAttribute('colorBlue', colorBlueInput.value);
+                    
+                    material.setAttribute('useTrans', usetransSelect.value);
+
+                    const transValue = parseFloat(transparencyInput.value);
+                    const scaledTransValue = (transValue / 100).toFixed(2);
+                    material.setAttribute('trans', scaledTransValue);
+
+                    const isTextureType = materialTypeSelect.value === '1';
+                    let textureNode = xmlDoc.getElementsByTagNameNS('http://sketchup.google.com/schemas/sketchup/1.0/material', 'texture')[0];
+                    let imageNode = textureNode ? textureNode.getElementsByTagNameNS('http://sketchup.google.com/schemas/sketchup/1.0/material', 'image')[0] : null;
+                    let textureFilename = '';
+
+                    if (isTextureType) {
+                        const r = parseInt(colorRedInput.value);
+                        const g = parseInt(colorGreenInput.value);
+                        const b = parseInt(colorBlueInput.value);
+                        const a = parseInt(transparencyInput.value);
+                        const abgrValue = rgbToAbgr(r, g, b, a);
+                        
+                        if (newTextureFile) {
+                            // Case 1: A new texture file was uploaded
+                            textureFilename = newTextureFile.name;
+                            material.setAttribute('hasTexture', '1');
+                            if (!textureNode) {
+                                textureNode = xmlDoc.createElementNS('http://sketchup.google.com/schemas/sketchup/1.0/material', 'mat:texture');
+                                material.appendChild(textureNode);
+                                const imagesNode = xmlDoc.createElementNS('http://sketchup.google.com/schemas/sketchup/1.0/material', 'mat:images');
+                                textureNode.appendChild(imagesNode);
+                                imageNode = xmlDoc.createElementNS('http://sketchup.google.com/schemas/sketchup/1.0/material', 'mat:image');
+                                imagesNode.appendChild(imageNode);
+                                imageNode.setAttribute('id', '1');
+                            }
+                            
+                            textureNode.setAttribute('textureFilename', textureFilename);
+                            textureNode.setAttribute('avgColor', abgrValue);
+                            if (imageNode) {
+                                imageNode.setAttribute('path', textureFilename);
+                            }
+
+                            const xScaleInch = parseFloat(textureScaleMmXInput.value) / INCH_TO_MM;
+                            const yScaleInch = parseFloat(textureScaleMmYInput.value) / INCH_TO_MM;
+                            textureNode.setAttribute('xScale', xScaleInch.toFixed(2));
+                            textureNode.setAttribute('yScale', yScaleInch.toFixed(2));
+
+                            // Add the new texture file to the zip
+                            newZip.file(`ref/${textureFilename}`, newTextureFile);
+
+                        } else if (originalZip) {
+                            // Case 2: Using the original texture from the uploaded file
+                            material.setAttribute('hasTexture', '1');
+                            if (textureNode) {
+                                textureNode.setAttribute('avgColor', abgrValue);
+                                textureFilename = textureNode.getAttribute('textureFilename');
+                                const xScaleInch = parseFloat(textureScaleMmXInput.value) / INCH_TO_MM;
+                                const yScaleInch = parseFloat(textureScaleMmYInput.value) / INCH_TO_MM;
+                                textureNode.setAttribute('xScale', xScaleInch.toFixed(2));
+                                textureNode.setAttribute('yScale', yScaleInch.toFixed(2));
+                                
+                                // Get the texture file from the original zip and add it to the new one
+                                const originalTextureFile = originalZip.file(`ref/${textureFilename}`);
+                                if (originalTextureFile) {
+                                    newZip.file(`ref/${textureFilename}`, originalTextureFile.async('blob'));
+                                } else {
+                                    console.warn(`Original texture file not found: ref/${textureFilename}`);
+                                }
+                            }
+                        }
+                    } else {
+                        // Case 3: No texture or texture is not enabled
+                        material.setAttribute('hasTexture', '0');
+                        if (textureNode) {
+                            material.removeChild(textureNode);
+                        }
+                    }
+                    
+                    const serializer = new XMLSerializer();
+                    const updatedXmlString = serializer.serializeToString(xmlDoc);
+                    newZip.file('document.xml', updatedXmlString);
+                    
+                    const newZipBlob = await newZip.generateAsync({ type: 'blob' });
+                    const downloadUrl = URL.createObjectURL(newZipBlob);
+
+                    const link = document.createElement('a');
+                    link.href = downloadUrl;
+                    link.download = materialName.replace(/[^a-zA-Z0-9_\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF\uFF00-\uFFEF\s-]/g, '_') + '.skm';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(downloadUrl);
+
+                    showMessage('ファイルのダウンロードが完了しました。', 'success');
+
+                } catch (error) {
+                    console.error('File generation error:', error);
+                    showMessage('ファイルの生成中にエラーが発生しました。', 'error');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
