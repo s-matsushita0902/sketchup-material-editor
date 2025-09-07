@@ -112,7 +112,7 @@
                             <img id="texture-preview" class="w-full h-auto max-h-48 object-contain rounded-md border border-gray-300 mb-2" src="" alt="テクスチャプレビュー">
                             
                             <!-- 新しいテクスチャアップロードUI -->
-                            <label for="texture-file" class="block text-gray-700 font-semibold mb-2">新しいテクスチャをアップロード</label>
+                            <label for="texture-file" class="block text-sm font-medium text-gray-700">🔳新しいテクスチャをアップロード</label>
                             <div class="flex items-center justify-center w-full">
                                 <label for="texture-file" class="flex flex-col items-center justify-center w-full h-24 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors duration-200">
                                     <div class="flex flex-col items-center justify-center pt-2 pb-2">
@@ -126,8 +126,13 @@
                                 </label>
                             </div>
                             <p id="texture-file-info" class="text-center text-gray-500 text-sm mt-2 hidden"></p>
+                            <!-- テクスチャサイズ表示用の新しい要素 -->
+                            <p id="texture-size-info" class="text-center text-gray-500 text-sm mt-1 hidden"></p>
+                            
+                            <!-- 物理サイズ指定のラベルを修正 -->
+                            <label for="texture-scale-mm-x" class="block text-sm font-medium text-gray-700 mt-4">🔳テクスチャの物理サイズ(mm)を指定する</label>
 
-                            <div class="grid grid-cols-2 gap-4 mt-4">
+                            <div class="grid grid-cols-2 gap-4 mt-1">
                                 <div>
                                     <label for="texture-scale-mm-x" class="block text-sm font-medium text-gray-700">ヨコの大きさ (mm)</label>
                                     <input type="number" id="texture-scale-mm-x" min="1" step="1" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" value="300">
@@ -137,6 +142,8 @@
                                     <input type="number" id="texture-scale-mm-y" min="1" step="1" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" value="300">
                                 </div>
                             </div>
+                            <!-- 新しい注意書きを追加 -->
+                            <p class="text-xs text-gray-500 mt-1">※不明な場合はピクセルサイズと同じにする。（縦横比を維持するため）</p>
                         </div>
                     </div>
                 </div>
@@ -233,6 +240,7 @@
             const textureScaleMmYInput = document.getElementById('texture-scale-mm-y');
             const textureFileInput = document.getElementById('texture-file');
             const textureFileInfo = document.getElementById('texture-file-info');
+            const textureSizeInfo = document.getElementById('texture-size-info');
 
             let originalZip = null;
             let originalFilename = '';
@@ -330,8 +338,9 @@
                 originalFilename = 'New_Material.skm';
                 newTextureFile = null;
                 textureFileInfo.classList.add('hidden');
+                textureSizeInfo.classList.add('hidden');
                 showMessage('新しいマテリアルを作成します。', 'info');
-                handleTransparencyDisable(); // Initial call to disable transparency if needed
+                handleTransparencyDisable();
             };
             
             // Set up initial view
@@ -353,7 +362,7 @@
             });
 
             materialTypeSelect.addEventListener('change', handleTextureSectionVisibility);
-            usetransSelect.addEventListener('change', handleTransparencyDisable); // New event listener
+            usetransSelect.addEventListener('change', handleTransparencyDisable);
 
             colorRedInput.addEventListener('input', () => updateColorUI(colorRedInput.value, colorGreenInput.value, colorBlueInput.value));
             colorGreenInput.addEventListener('input', () => updateColorUI(colorRedInput.value, colorGreenInput.value, colorBlueInput.value));
@@ -379,16 +388,26 @@
                     newTextureFile = file;
                     textureFileInfo.textContent = `新しいテクスチャ: ${file.name}`;
                     textureFileInfo.classList.remove('hidden');
+                    
                     const reader = new FileReader();
                     reader.onload = (e) => {
                         texturePreview.src = e.target.result;
                         textureInfo.classList.remove('hidden');
                         noTextureMessage.classList.add('hidden');
+                        
+                        // Get and display image dimensions
+                        const img = new Image();
+                        img.onload = () => {
+                            textureSizeInfo.textContent = `テクスチャサイズ: ヨコ ${img.width}ピクセル、タテ ${img.height}ピクセル`;
+                            textureSizeInfo.classList.remove('hidden');
+                        };
+                        img.src = e.target.result;
                     };
                     reader.readAsDataURL(file);
                 } else {
                     newTextureFile = null;
                     textureFileInfo.classList.add('hidden');
+                    textureSizeInfo.classList.add('hidden');
                 }
             });
 
@@ -421,6 +440,7 @@
                         originalFilename = file.name;
                         newTextureFile = null;
                         textureFileInfo.classList.add('hidden');
+                        textureSizeInfo.classList.add('hidden');
 
                         const docXmlFile = zip.file('document.xml');
                         if (!docXmlFile) {
@@ -450,7 +470,7 @@
 
                             const useTransValue = material.getAttribute('useTrans') || '0';
                             usetransSelect.value = useTransValue;
-                            handleTransparencyDisable(); // Set state based on file content
+                            handleTransparencyDisable();
 
                             const transValue = parseFloat(material.getAttribute('trans')) || 0;
                             const scaledTransValue = transValue * 100;
@@ -483,6 +503,7 @@
                                         if (textureFile) {
                                             const textureBlob = await textureFile.async('blob');
                                             texturePreview.src = URL.createObjectURL(textureBlob);
+                                            // 読み込んだテクスチャのサイズは不明なため、ここでは表示しない
                                         } else {
                                             console.warn(`Texture file not found at expected path: ref/${texturePath}`);
                                             texturePreview.src = '';
