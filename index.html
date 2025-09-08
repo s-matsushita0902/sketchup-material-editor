@@ -42,6 +42,10 @@
             opacity: 0.5;
             pointer-events: none;
         }
+        .disclaimer-section {
+            max-height: 350px;
+            overflow-y: auto;
+        }
     </style>
 </head>
 <body class="bg-gray-100 flex items-center justify-center min-h-screen">
@@ -54,8 +58,36 @@
         <!-- メッセージ表示エリア -->
         <div id="message-box" class="hidden mb-4 p-3 rounded-md text-sm text-center" role="alert"></div>
 
+        <!-- 免責事項セクション -->
+        <div id="disclaimer-container" class="mb-8 p-6 bg-gray-50 border border-gray-200 rounded-lg">
+            <h2 class="text-xl font-bold mb-4 text-gray-800">利用上の注意と免責事項</h2>
+            <div class="disclaimer-section text-sm text-gray-600 space-y-4 mb-4">
+                <div>
+                    <h3 class="font-bold text-gray-800">利用上の注意</h3>
+                    <p>本ツールは、SketchUp Free向けの非公式ツールです。開発元（Trimble社）とは一切関係がなく、公式サポートの対象外となります。また、本ツールは、個人の学習や趣味の範囲での利用を目的として公開しています。ご利用にあたっては、以下のことを守ってください。</p>
+                    <ul class="list-disc list-inside space-y-1 ml-4">
+                        <li>商用利用しない</li>
+                        <li>本ツールで生成した .skmファイルを3D Warehouseで共有しない</li>
+                        <li>その他、第三者の権利を侵害する行為をしない</li>
+                    </ul>
+                </div>
+                <div>
+                    <h3 class="font-bold text-gray-800">免責事項</h3>
+                    <p>本ツールのご利用は、利用者ご自身の判断と責任でお願いいたします。</p>
+                    <p>当サイトは、本ツールの動作保証や不具合修正の義務を負いません。また、利用によって生じたいかなる損害（データの消失、環境への不具合、その他トラブルを含む）についても、一切責任を負いかねます。なお、本ツールの内容は予告なく変更・停止・削除する場合がありますので、あらかじめご了承ください。</p>
+                </div>
+            </div>
+		<p class="disclaimer-section text-sm text-gray-800">
+			上記内容を確認し、同意いただいた方のみご利用ください。
+		</p>
+            <div class="flex items-center">
+                <input type="checkbox" id="disclaimer-checkbox" class="rounded text-indigo-600 focus:ring-indigo-500">
+                <label for="disclaimer-checkbox" class="ml-2 text-sm font-bold text-gray-800">利用上の注意を守り、免責事項に同意します</label>
+            </div>
+        </div>
+        
         <!-- ファイルアップロードセクション -->
-        <div id="upload-section" class="mb-8">
+        <div id="upload-section" class="mb-8 disabled-section">
             <button id="create-new-button" class="w-full mb-4 py-3 px-6 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg transition-colors duration-200 shadow-md">
                 新しいマテリアルを作成
             </button>
@@ -77,6 +109,8 @@
 
         <!-- 編集フォームセクション -->
         <div id="editor-section" class="hidden">
+             <!-- メッセージ表示エリア (編集セクション内) -->
+            <div id="message-box-in-editor" class="hidden mb-4 p-3 rounded-md text-sm text-center" role="alert"></div>
             <div class="flex justify-end mb-4">
                 <button id="cancel-edit-button" class="py-2 px-4 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold rounded-lg transition-colors duration-200 shadow-md">
                     編集を終了してエディタを再読み込み
@@ -112,14 +146,14 @@
                             <img id="texture-preview" class="w-full h-auto max-h-48 object-contain rounded-md border border-gray-300 mb-2" src="" alt="テクスチャプレビュー">
                             
                             <!-- 新しいテクスチャアップロードUI -->
-                            <label for="texture-file" class="block text-sm font-medium text-gray-700">🔳新しいテクスチャをアップロード</label>
+                            <label for="texture-file" class="block text-sm font-medium text-gray-700">🔳新しいテクスチャを開く</label>
                             <div class="flex items-center justify-center w-full">
                                 <label for="texture-file" class="flex flex-col items-center justify-center w-full h-24 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors duration-200">
                                     <div class="flex flex-col items-center justify-center pt-2 pb-2">
                                         <svg class="w-6 h-6 mb-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-4l-4-4m6 4l4 4"></path>
                                         </svg>
-                                        <p class="mb-2 text-sm text-gray-500"><span class="font-semibold">クリックしてアップロード</span> またはドラッグ＆ドロップ</p>
+                                        <p class="mb-2 text-sm text-gray-500"><span class="font-semibold">クリックして読み込み</span> またはドラッグ＆ドロップ</p>
                                         <p class="text-xs text-gray-500">JPG, JPEG, PNG</p>
                                     </div>
                                     <input id="texture-file" type="file" class="hidden" accept="image/jpeg, image/png" />
@@ -207,14 +241,23 @@
         document.addEventListener('DOMContentLoaded', () => {
             const INCH_TO_MM = 25.4;
 
+            // Helper function to convert RGB to ABGR for SketchUp's avgColor attribute
+            const rgbToAbgr = (r, g, b, a) => {
+                const alpha = Math.round((255 - (a / 100) * 255));
+                const abgr = (alpha << 24) | (b << 16) | (g << 8) | r;
+                return abgr.toString(10);
+            };
+
             const uploadSection = document.getElementById('upload-section');
             const fileInput = document.getElementById('skm-file');
             const fileInfo = document.getElementById('file-info');
             const messageBox = document.getElementById('message-box');
+            const messageBoxInEditor = document.getElementById('message-box-in-editor');
             const editorSection = document.getElementById('editor-section');
             const downloadButton = document.getElementById('download-button');
             const createNewButton = document.getElementById('create-new-button');
             const cancelEditButton = document.getElementById('cancel-edit-button');
+            const disclaimerCheckbox = document.getElementById('disclaimer-checkbox');
 
             // Material editing form elements
             const materialNameInput = document.getElementById('material-name');
@@ -247,15 +290,15 @@
             let newTextureFile = null;
 
             // Function to show messages
-            const showMessage = (message, type = 'info') => {
-                messageBox.textContent = message;
-                messageBox.classList.remove('hidden', 'bg-red-200', 'text-red-800', 'bg-green-200', 'text-green-800', 'bg-blue-200', 'text-blue-800');
+            const showMessage = (message, type = 'info', targetBox = messageBox) => {
+                targetBox.textContent = message;
+                targetBox.classList.remove('hidden', 'bg-red-200', 'text-red-800', 'bg-green-200', 'text-green-800', 'bg-blue-200', 'text-blue-800');
                 if (type === 'error') {
-                    messageBox.classList.add('bg-red-200', 'text-red-800');
+                    targetBox.classList.add('bg-red-200', 'text-red-800');
                 } else if (type === 'success') {
-                    messageBox.classList.add('bg-green-200', 'text-green-800');
+                    targetBox.classList.add('bg-green-200', 'text-green-800');
                 } else {
-                    messageBox.classList.add('bg-blue-200', 'text-blue-800');
+                    targetBox.classList.add('bg-blue-200', 'text-blue-800');
                 }
             };
 
@@ -303,13 +346,6 @@
                 }
             };
 
-            // Convert RGBA to ABGR decimal
-            const rgbToAbgr = (r, g, b, a) => {
-                // Alpha is 255 for opaque, 0 for transparent
-                const alphaByte = Math.round(255 - (a / 100) * 255);
-                return (alphaByte << 24) | (b << 16) | (g << 8) | r;
-            };
-
             // Reset form to default values for new material
             const resetForm = () => {
                 materialNameInput.value = "New Material";
@@ -339,7 +375,7 @@
                 newTextureFile = null;
                 textureFileInfo.classList.add('hidden');
                 textureSizeInfo.classList.add('hidden');
-                showMessage('新しいマテリアルを作成します。', 'info');
+                showMessage('新しいマテリアルを作成します。', 'info', messageBoxInEditor);
                 handleTransparencyDisable();
             };
             
@@ -350,6 +386,7 @@
                 fileInput.value = null; // Clear file input
                 fileInfo.classList.add('hidden');
                 showMessage('');
+                showMessage('', 'info', messageBoxInEditor);
             };
 
             // Event listeners
@@ -398,7 +435,7 @@
                         // Get and display image dimensions
                         const img = new Image();
                         img.onload = () => {
-                            textureSizeInfo.textContent = `テクスチャサイズ: ヨコ ${img.width}ピクセル、タテ ${img.height}ピクセル`;
+                            textureSizeInfo.textContent = `ピクセルサイズ: ヨコ ${img.width}ピクセル、タテ ${img.height}ピクセル`;
                             textureSizeInfo.classList.remove('hidden');
                         };
                         img.src = e.target.result;
@@ -417,12 +454,12 @@
                 if (!file) return;
 
                 if (!file.name.endsWith('.skm')) {
-                    showMessage('無効なファイル形式です。 .skm ファイルをアップロードしてください。', 'error');
+                    showMessage('無効なファイル形式です。 .skm ファイルを選択してください。', 'error', messageBox);
                     editorSection.classList.add('hidden');
                     return;
                 }
 
-                showMessage('ファイルを解析中...', 'info');
+                showMessage('ファイルを解析中...', 'info', messageBox);
                 fileInfo.textContent = `ファイル: ${file.name}`;
                 fileInfo.classList.remove('hidden');
                 
@@ -444,7 +481,7 @@
 
                         const docXmlFile = zip.file('document.xml');
                         if (!docXmlFile) {
-                            showMessage('エラー: ZIP内に document.xml が見つかりません。', 'error');
+                            showMessage('エラー: ZIP内に document.xml が見つかりません。', 'error', messageBox);
                             return;
                         }
 
@@ -525,14 +562,14 @@
 
                             editorSection.classList.remove('hidden');
                             downloadButton.disabled = false;
-                            showMessage('ファイルを正常に読み込みました。', 'success');
+                            showMessage('ファイルを正常に読み込みました。', 'success', messageBoxInEditor);
                         } else {
-                            showMessage('エラー: document.xmlにマテリアルデータが見つかりません。', 'error');
+                            showMessage('エラー: document.xmlにマテリアルデータが見つかりません。', 'error', messageBox);
                             uploadSection.classList.remove('disabled-section');
                         }
                     } catch (error) {
                         console.error('File parsing error:', error);
-                        showMessage('ファイルの解析中にエラーが発生しました。', 'error');
+                        showMessage('ファイルの解析中にエラーが発生しました。', 'error', messageBox);
                         uploadSection.classList.remove('disabled-section');
                     }
                 };
@@ -543,11 +580,11 @@
             downloadButton.addEventListener('click', async () => {
                 const materialName = materialNameInput.value.trim();
                 if (materialName === '') {
-                    showMessage('マテリアル名を入力してください。', 'error');
+                    showMessage('マテリアル名を入力してください。', 'error', messageBoxInEditor);
                     return;
                 }
 
-                showMessage('新しい .skm ファイルを生成中...', 'info');
+                showMessage('新しい .skm ファイルを生成中...', 'info', messageBoxInEditor);
 
                 try {
                     let xmlDoc;
@@ -679,13 +716,27 @@
                     document.body.removeChild(link);
                     URL.revokeObjectURL(downloadUrl);
 
-                    showMessage('ファイルのダウンロードが完了しました。', 'success');
+                    showMessage('ファイルを保存しました。', 'success', messageBoxInEditor);
 
                 } catch (error) {
                     console.error('File generation error:', error);
-                    showMessage('ファイルの生成中にエラーが発生しました。', 'error');
+                    showMessage('ファイルの生成中にエラーが発生しました。', 'error', messageBoxInEditor);
                 }
             });
+            
+            // 免責事項のチェックボックスの変更を監視
+            disclaimerCheckbox.addEventListener('change', () => {
+                if (disclaimerCheckbox.checked) {
+                    uploadSection.classList.remove('disabled-section');
+                } else {
+                    uploadSection.classList.add('disabled-section');
+                }
+            });
+
+            // 初期状態でエディタを無効にする
+            if (!disclaimerCheckbox.checked) {
+                uploadSection.classList.add('disabled-section');
+            }
         });
     </script>
 </body>
